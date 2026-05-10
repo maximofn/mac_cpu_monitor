@@ -8,7 +8,7 @@ struct Config: Sendable {
 
     static let `default` = Config(
         backendURL: ProcessInfo.processInfo.environment["MAC_CPU_MONITOR_TRAY_URL"]
-            ?? "http://127.0.0.1:9125",
+            ?? "http://127.0.0.1:9134",
         iconHeight: 22,
         logLevel: "info",
         dumpIcon: nil
@@ -56,7 +56,7 @@ struct Config: Sendable {
             mac-cpu-monitor-tray [OPTIONS]
 
         OPTIONS:
-            --backend-url <URL>     Base URL of mac-cpu-monitord (default: http://127.0.0.1:9125,
+            --backend-url <URL>     Base URL of mac-cpu-monitord (default: http://127.0.0.1:9134,
                                     env: MAC_CPU_MONITOR_TRAY_URL)
             --icon-height <PT>      Status bar icon height in points (default: 22)
             --log-level <LEVEL>     trace|debug|info|warn|error (default: info)

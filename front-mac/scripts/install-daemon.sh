@@ -40,7 +40,7 @@ case "$cmd" in
         launchctl kickstart -k "$target"
 
         echo
-        echo "Loaded. The backend will autostart on login and listen on http://127.0.0.1:9125."
+        echo "Loaded. The backend will autostart on login and listen on http://127.0.0.1:9134."
         echo "Logs: ~/Library/Logs/mac-cpu-monitord.{out,err}.log"
         ;;
     uninstall)

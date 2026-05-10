@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Two halves living side by side, sharing nothing at runtime except the JSON wire-format:
 
-- **Rust backend** in `crates/` (Cargo workspace): `mac-cpu-monitor-core` (shared serde types) + `mac-cpu-monitord` (HTTP/SSE daemon, default `127.0.0.1:9125`).
+- **Rust backend** in `crates/` (Cargo workspace): `mac-cpu-monitor-core` (shared serde types) + `mac-cpu-monitord` (HTTP/SSE daemon, default `127.0.0.1:9134`).
 - **Swift frontend** in `front-mac/` (Swift Package, AppKit, no third-party deps): a menubar-only app (`LSUIElement`) that consumes the daemon's `/v1/stream`.
 
 The on-the-wire schema (`crates/mac-cpu-monitor-core/src/model.rs` ↔ `front-mac/Sources/MacCPUMonitorTray/Models.swift`) is intentionally identical to the Linux sibling at `../cpu_monitor`. **If you add or rename a field on the Rust side, mirror it in `Models.swift` (with the matching `CodingKeys`) or the JSON decode silently drops it.**
@@ -28,10 +28,10 @@ cargo test -p mac-cpu-monitor-core model::tests::snapshot_roundtrips_through_jso
 swift build -c release --arch arm64     # raw binary only, no .app wrapper
 
 # End-to-end
-./target/release/mac-cpu-monitord --port 9125 &
+./target/release/mac-cpu-monitord --port 9134 &
 open "front-mac/build/Mac CPU Monitor.app"
-curl -s http://127.0.0.1:9125/v1/snapshot | jq
-curl -N http://127.0.0.1:9125/v1/stream      # SSE, one event per second
+curl -s http://127.0.0.1:9134/v1/snapshot | jq
+curl -N http://127.0.0.1:9134/v1/stream      # SSE, one event per second
 "front-mac/build/Mac CPU Monitor.app/Contents/MacOS/mac-cpu-monitor-tray" --dump-icon /tmp/icon.png
 ```
 
@@ -56,7 +56,7 @@ On Intel Macs the `macmon` dependency is not compiled in, so `temperature_c`, `t
 
 `crates/mac-cpu-monitord/src/http/mod.rs` wires the routes; routes only ever read the latest `Snapshot` from the `watch::Receiver` clone in `AppState`. SSE (`http/sse.rs`) wraps that receiver in `tokio_stream::wrappers::WatchStream` so each new snapshot becomes one SSE event automatically — there is no per-client buffering or sample loop on the HTTP side.
 
-Endpoints: `/healthz`, `/v1/info`, `/v1/snapshot`, `/v1/cpu`, `/v1/cpu/temperatures`, `/v1/cpu/processes`, `/v1/stream`. Defaults to `127.0.0.1:9125`. Port `9125` is deliberate: the Linux backend at `../cpu_monitor` uses `9124`, so both can run side-by-side (e.g. when tunnelling a remote Linux box's CPU into the same Mac that runs this local backend).
+Endpoints: `/healthz`, `/v1/info`, `/v1/snapshot`, `/v1/cpu`, `/v1/cpu/temperatures`, `/v1/cpu/processes`, `/v1/stream`. Defaults to `127.0.0.1:9134`. The port assignment is deliberate: Linux variants use the 9123-9126 band (cpu=9124, gpu=9123, ram=9125, disk=9126); Mac variants use 9133-9136 with the same trailing digit (cpu=9134, gpu=9133, ram=9135, disk=9136). That way a single Mac can simultaneously run its own backends and SSH-tunnel the Linux siblings.
 
 ### Swift menubar app
 
@@ -75,6 +75,6 @@ Endpoints: `/healthz`, `/v1/info`, `/v1/snapshot`, `/v1/cpu`, `/v1/cpu/temperatu
 1. Edit `crates/mac-cpu-monitor-core/src/model.rs`.
 2. Mirror in `front-mac/Sources/MacCPUMonitorTray/Models.swift` — same field order, matching `CodingKeys` for the snake_case ↔ camelCase mapping.
 3. Rebuild both halves: `cargo build --workspace` and `./front-mac/scripts/build-app.sh`.
-4. Smoke test: `curl -s http://127.0.0.1:9125/v1/snapshot | jq` to confirm new fields serialise; the Swift side will silently ignore unknown JSON keys, so the failure mode is "field stays `nil`/`zero`" — easy to miss without an end-to-end check.
+4. Smoke test: `curl -s http://127.0.0.1:9134/v1/snapshot | jq` to confirm new fields serialise; the Swift side will silently ignore unknown JSON keys, so the failure mode is "field stays `nil`/`zero`" — easy to miss without an end-to-end check.
 
 The same schema is used by the Linux `cpu-monitord` at `../cpu_monitor`; keep them in sync if the change is supposed to be cross-platform (e.g. so a single Home Assistant package works against both backends).

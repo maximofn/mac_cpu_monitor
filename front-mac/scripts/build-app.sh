@@ -47,4 +47,4 @@ echo "Run:"
 echo "    open '$APP'"
 echo
 echo "Or from CLI:"
-echo "    '$APP/Contents/MacOS/mac-cpu-monitor-tray' --backend-url http://127.0.0.1:9125"
+echo "    '$APP/Contents/MacOS/mac-cpu-monitor-tray' --backend-url http://127.0.0.1:9134"

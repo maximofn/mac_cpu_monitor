@@ -21,7 +21,7 @@ Same on-the-wire schema as the Linux [`cpu_monitor`](../cpu_monitor) sibling, ju
 The Rust binaries live in a single Cargo workspace under `crates/`:
 
 - `mac-cpu-monitor-core` — shared `Snapshot` / `Cpu` / `Process` / `TempSensor` types serialised with `serde`. Identical to the Linux backend's schema so external consumers (Home Assistant, dashboards, etc.) work against either backend unchanged.
-- `mac-cpu-monitord` — backend daemon. Uses `sysinfo` for usage / per-core / processes / load avg / uptime / model, and on Apple Silicon layers `macmon` on top for CPU temperature and per-cluster frequency via the private IOReport framework — same data source as `powermetrics`, but without `sudo`. Defaults to `127.0.0.1:9125`.
+- `mac-cpu-monitord` — backend daemon. Uses `sysinfo` for usage / per-core / processes / load avg / uptime / model, and on Apple Silicon layers `macmon` on top for CPU temperature and per-cluster frequency via the private IOReport framework — same data source as `powermetrics`, but without `sudo`. Defaults to `127.0.0.1:9134`.
 
 The macOS frontend lives in `front-mac/` as a Swift Package (Swift + AppKit + CoreGraphics, zero third-party deps). It consumes `/v1/stream` and renders into the menubar via `NSStatusItem`.
 
@@ -58,7 +58,7 @@ cd front-mac
 In two terminals (or as services — see Autostart below):
 
 ```bash
-./target/release/mac-cpu-monitord --bind 127.0.0.1 --port 9125
+./target/release/mac-cpu-monitord --bind 127.0.0.1 --port 9134
 open "front-mac/build/Mac CPU Monitor.app"
 ```
 
@@ -66,7 +66,7 @@ Or pass a custom backend URL explicitly:
 
 ```bash
 "front-mac/build/Mac CPU Monitor.app/Contents/MacOS/mac-cpu-monitor-tray" \
-    --backend-url http://127.0.0.1:9125
+    --backend-url http://127.0.0.1:9134
 ```
 
 ### Daemon flags
@@ -74,7 +74,7 @@ Or pass a custom backend URL explicitly:
 | Flag | Default | Purpose |
 |---|---|---|
 | `--bind` | `127.0.0.1` | bind address (no auth, keep loopback) |
-| `--port` | `9125` | HTTP port (Linux backend uses `9124` — different on purpose) |
+| `--port` | `9134` | HTTP port. Mac variants use the 9133-9136 band; Linux uses 9123-9126 — both can run side by side (e.g. with an SSH tunnel from a remote Linux host) |
 | `--sample-interval-ms` | `1000` | sampler period |
 | `--top-processes` | `5` | top-N CPU consumers per snapshot (`0` disables) |
 | `--log-level` | `info` | also via `RUST_LOG` |
@@ -86,8 +86,8 @@ Or pass a custom backend URL explicitly:
 ### Quick API smoke test
 
 ```bash
-curl -s http://127.0.0.1:9125/v1/snapshot | jq
-curl -N http://127.0.0.1:9125/v1/stream         # SSE: one event per second
+curl -s http://127.0.0.1:9134/v1/snapshot | jq
+curl -N http://127.0.0.1:9134/v1/stream         # SSE: one event per second
 ```
 
 ## API
@@ -107,7 +107,7 @@ curl -N http://127.0.0.1:9125/v1/stream         # SSE: one event per second
 Two LaunchAgents live in `front-mac/scripts/`. Run from `front-mac/`:
 
 ```bash
-./scripts/install-daemon.sh         # backend on login (port 9125, KeepAlive)
+./scripts/install-daemon.sh         # backend on login (port 9134, KeepAlive)
 ./scripts/install-launchagent.sh    # tray autostart on login
 ```
 
