@@ -145,8 +145,8 @@ struct IconRenderer {
 
     private func layout(cpu: CPU?, scale: CGFloat, connected: Bool, appearance: IconAppearance) -> Layout {
         let textPx = textSize(forHeight: height)
-        // Reserve enough width for the worst case "(00ºC)" — 6 chars in mono digits.
-        let probeWidth = measureText("(00ºC)", size: textPx)
+        // Reserve enough width for the worst case "00ºC" — 4 chars in mono digits.
+        let probeWidth = measureText("00ºC", size: textPx)
         let donutSize = max(8, height - donutPadding * 2)
         let iconW: CGFloat = baseIcon.map { CGFloat($0.width) / scale } ?? 0
 
@@ -220,14 +220,14 @@ struct IconRenderer {
             ctx.restoreGState()
         }
 
-        // Label is the temperature in (NNºC) form. Backend's temperature_c is
+        // Label is the temperature in NNºC form. Backend's temperature_c is
         // an Option<f32>; macOS PT100 / smc readings have ~1 ºC effective
         // resolution so render as integer.
         let label: String
         if let t = cpu.temperatureC {
-            label = String(format: "(%2dºC)", Int(t.rounded()))
+            label = String(format: "%2dºC", Int(t.rounded()))
         } else {
-            label = "( -ºC)"
+            label = " -ºC"
         }
         let labelColor = layout.connected
             ? IconColors.text(layout.appearance)
