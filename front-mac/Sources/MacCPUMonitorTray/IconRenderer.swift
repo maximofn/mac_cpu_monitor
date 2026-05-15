@@ -61,8 +61,8 @@ struct IconRenderer {
     }
 
     @MainActor
-    func renderImage(cpu: CPU?, connected: Bool, appearance: IconAppearance) -> NSImage? {
-        guard let result = renderCGImage(cpu: cpu, connected: connected, appearance: appearance) else {
+    func renderImage(cpu: CPU?, connected: Bool, appearance: IconAppearance, compact: Bool = false) -> NSImage? {
+        guard let result = renderCGImage(cpu: cpu, connected: connected, appearance: appearance, compact: compact) else {
             return nil
         }
         let img = NSImage(cgImage: result.cgImage, size: result.logicalSize)
@@ -75,9 +75,10 @@ struct IconRenderer {
         cpu: CPU?,
         connected: Bool,
         to path: String,
-        appearance: IconAppearance = .dark
+        appearance: IconAppearance = .dark,
+        compact: Bool = false
     ) throws {
-        guard let result = renderCGImage(cpu: cpu, connected: connected, appearance: appearance) else {
+        guard let result = renderCGImage(cpu: cpu, connected: connected, appearance: appearance, compact: compact) else {
             throw NSError(domain: "IconRenderer", code: 1,
                           userInfo: [NSLocalizedDescriptionKey: "render failed"])
         }
@@ -100,9 +101,9 @@ struct IconRenderer {
         let logicalSize: CGSize
     }
 
-    private func renderCGImage(cpu: CPU?, connected: Bool, appearance: IconAppearance) -> RenderResult? {
+    private func renderCGImage(cpu: CPU?, connected: Bool, appearance: IconAppearance, compact: Bool) -> RenderResult? {
         let scale: CGFloat = 2
-        let layout = self.layout(cpu: cpu, scale: scale, connected: connected, appearance: appearance)
+        let layout = self.layout(cpu: cpu, scale: scale, connected: connected, appearance: appearance, compact: compact)
         let pxW = max(1, Int(layout.totalLogicalWidth * scale))
         let pxH = max(1, Int(height * scale))
 
@@ -141,12 +142,13 @@ struct IconRenderer {
         let cpu: CPU?
         let connected: Bool
         let appearance: IconAppearance
+        let compact: Bool
     }
 
-    private func layout(cpu: CPU?, scale: CGFloat, connected: Bool, appearance: IconAppearance) -> Layout {
+    private func layout(cpu: CPU?, scale: CGFloat, connected: Bool, appearance: IconAppearance, compact: Bool) -> Layout {
         let textPx = textSize(forHeight: height)
         // Reserve enough width for the worst case "00ºC" — 4 chars in mono digits.
-        let probeWidth = measureText("00ºC", size: textPx)
+        let probeWidth = compact ? 0 : measureText("00ºC", size: textPx)
         let donutSize = max(8, height - donutPadding * 2)
         let iconW: CGFloat = baseIcon.map { CGFloat($0.width) / scale } ?? 0
 
@@ -157,6 +159,8 @@ struct IconRenderer {
             // could be misread as "0% used".
             let dashW = measureText("-", size: textPx)
             total = iconW + 4 + dashW + 2
+        } else if compact {
+            total = iconW + 2 + donutSize
         } else {
             total = iconW + 2 + probeWidth + 2 + donutSize
         }
@@ -168,7 +172,8 @@ struct IconRenderer {
             textPx: textPx,
             cpu: cpu,
             connected: connected,
-            appearance: appearance
+            appearance: appearance,
+            compact: compact
         )
     }
 
@@ -220,29 +225,33 @@ struct IconRenderer {
             ctx.restoreGState()
         }
 
-        // Label is the temperature in NNºC form. Backend's temperature_c is
-        // an Option<f32>; macOS PT100 / smc readings have ~1 ºC effective
-        // resolution so render as integer.
-        let label: String
-        if let t = cpu.temperatureC {
-            label = String(format: "%2dºC", Int(t.rounded()))
-        } else {
-            label = " -ºC"
+        if !layout.compact {
+            // Label is the temperature in NNºC form. Backend's temperature_c is
+            // an Option<f32>; macOS PT100 / smc readings have ~1 ºC effective
+            // resolution so render as integer.
+            let label: String
+            if let t = cpu.temperatureC {
+                label = String(format: "%2dºC", Int(t.rounded()))
+            } else {
+                label = " -ºC"
+            }
+            let labelColor = layout.connected
+                ? IconColors.text(layout.appearance)
+                : IconColors.dimText(layout.appearance)
+            let textX = x + layout.iconWidth + 2
+            drawText(
+                label,
+                ctx: ctx,
+                x: textX,
+                size: layout.textPx,
+                color: labelColor,
+                blockHeight: height
+            )
         }
-        let labelColor = layout.connected
-            ? IconColors.text(layout.appearance)
-            : IconColors.dimText(layout.appearance)
-        let textX = x + layout.iconWidth + 2
-        drawText(
-            label,
-            ctx: ctx,
-            x: textX,
-            size: layout.textPx,
-            color: labelColor,
-            blockHeight: height
-        )
 
-        let donutX = x + layout.iconWidth + 2 + layout.textWidth + 2
+        let donutX = layout.compact
+            ? x + layout.iconWidth + 2
+            : x + layout.iconWidth + 2 + layout.textWidth + 2
         let usedPct = max(0, min(100, cpu.usagePercent))
         drawDonut(
             ctx: ctx,
